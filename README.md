@@ -17,17 +17,25 @@ payer/agent ──open(1 USDC)──▶ ArcMeter ◀──claim(latest voucher)�
      └── GET /api  + x-arcmeter-voucher: {channel, 0.03, sig} ┘   (off-chain, per call)
 ```
 
-## Built in Arc Studio
+## Built in Arc Studio, live on Arc mainnet
 
 Arc Studio project: **https://studio.arc.io/app/5418f538-9407-45e6-b790-f8a2dc895dbc**
 
-- Contract + Foundry suite written in Studio: 87 tests, incl. fuzz and a mock ERC-1271 payer. Studio also ran a security review + Slither and fixed one uninitialized-variable finding.
-- Deployed by Studio to Arc Testnet: [`0x897147242d06b5d86aa0e4dc034f387eeb16dd87`](https://explorer.testnet.arc.io/address/0x897147242d06b5d86aa0e4dc034f387eeb16dd87) (tx `0x512aace4880b2d69a793c1f48f45576e1c9138ab576f980fe413e560426f8906`).
-- The web app (open / pay per call / service / channel status) was built and tested in Studio's preview on testnet.
-- The SDK, demo paid API and demo agent were run live by Studio on testnet: 3 paid calls at 0.001 USDC, channel closed with 0.003 settled.
-- Studio is testnet-only, so the mainnet contract below was deployed with our own tooling from the reviewed reference build in `contracts/` (same spec, source verified on explorer.arc.io). `extend` may revive an expired-but-unreclaimed channel (payer-only, time can only be added, no funds move). Both builds behave this way; see `test_extendRevivesExpiredUnreclaimedChannel`.
+| | |
+|---|---|
+| **Mainnet contract (Studio build)** | [`0x8cCc466E9645eF293bc1d5ee76AE17aAE066a7f9`](https://explorer.arc.io/address/0x8cCc466E9645eF293bc1d5ee76AE17aAE066a7f9), source verified |
+| **Live app (Studio build)** | https://cgrab-k7q2.github.io/arcmeter/studio-app/ |
+| **Studio source** | [`studio/`](studio/) (see [`studio/MAINNET.md`](studio/MAINNET.md) for all mainnet txs) |
+| **Demo video** | [`demo/arcmeter-demo.mp4`](demo/arcmeter-demo.mp4) |
 
-Demo video: [`demo/arcmeter-demo.mp4`](demo/arcmeter-demo.mp4)
+- **Contract and tests.** Studio wrote `studio/contracts/ArcMeter.sol` and its Foundry suite: 87 tests, including fuzz/invariant tests and a mock ERC-1271 payer. Studio also ran a security review and Slither, and fixed one uninitialized-variable finding.
+- **Testnet.** Studio deployed the contract to Arc Testnet at [`0x8971…dd87`](https://explorer.testnet.arc.io/address/0x897147242d06b5d86aa0e4dc034f387eeb16dd87).
+- **App.** Studio built the app and tested it in its preview on testnet.
+- **SDK and agent demo.** Studio wrote the SDK (`studio/src/sdk/`), a demo paid API and a demo agent, and ran them live on testnet: 3 paid calls at 0.001 USDC each.
+- **Mainnet.** Studio doesn't deploy to mainnet, so we deployed the unmodified Studio contract to Arc mainnet ourselves. We then ran real USDC through it twice: from a script (open 0.03 → claim 0.01 → close +0.01, refund 0.01), and from the **Studio-built app** (open 0.03 → 3 signed vouchers → [close with voucher, 0.03 to the payee](https://explorer.arc.io/tx/0xfebc845b91402faf23147eae3473de3d8522c3ce50fde497b11556b8885830c0)). The only app change is adding the Arc mainnet chain (`studio/mainnet-chain.patch`).
+- **`extend`.** It can revive an expired channel that hasn't been reclaimed. Only the payer can call it, it can only add time, and no funds move. Both builds behave this way.
+
+The rest of this README covers the **reference build** in the repo root (`contracts/`, `sdk/`, `app/`). It's a compact implementation of the same spec that we wrote to cross-check Studio's output, and it was deployed to mainnet first (listed under Deployments).
 
 ## Contents
 
@@ -89,7 +97,8 @@ await guard.settle(walletClient, channelId);            // claim
 | Network | ArcMeter | Notes |
 |---|---|---|
 | Arc testnet (5042002) | `0x0FD8BFCa9916550533B9799fdF928c1161BEed36` | e2e run: open 1 USDC → 3 vouchers → claim 0.03 → close, refund 0.97 (see `deployments.testnet.json`) |
-| Arc mainnet (5042) | [`0x0FEdB04DfE0d24d7FB393B81f03fF85fa0B4cf10`](https://explorer.arc.io/address/0x0FEdB04DfE0d24d7FB393B81f03fF85fa0B4cf10) (source verified, Sourcify exact match) | e2e run 2026-10-31: open 0.05 USDC → 3 vouchers → [claim 0.03](https://explorer.arc.io/tx/0x40b30379003cccc9ebbbabfe8ec6ff2b4d1c9dc93d4efa77bc60d26201d81c45) → [close, refund 0.02](https://explorer.arc.io/tx/0x9b06e184d1ab8883bb6938cbf03c3cbd437bb1280bb5cd779985ca81881bf543); see `deployments.mainnet.json` |
+| **Arc mainnet (5042), Studio build (primary)** | [`0x8cCc466E9645eF293bc1d5ee76AE17aAE066a7f9`](https://explorer.arc.io/address/0x8cCc466E9645eF293bc1d5ee76AE17aAE066a7f9) (verified) | script run + Studio-app run, see `studio/MAINNET.md`, `deployments.mainnet.studio*.json` |
+| Arc mainnet (5042), reference build (earlier) | [`0x0FEdB04DfE0d24d7FB393B81f03fF85fa0B4cf10`](https://explorer.arc.io/address/0x0FEdB04DfE0d24d7FB393B81f03fF85fa0B4cf10) (source verified, Sourcify exact match) | e2e run 2026-10-31: open 0.05 USDC → 3 vouchers → [claim 0.03](https://explorer.arc.io/tx/0x40b30379003cccc9ebbbabfe8ec6ff2b4d1c9dc93d4efa77bc60d26201d81c45) → [close, refund 0.02](https://explorer.arc.io/tx/0x9b06e184d1ab8883bb6938cbf03c3cbd437bb1280bb5cd779985ca81881bf543); see `deployments.mainnet.json` |
 
 Mainnet transactions through the **dApp** (`app/index.html`, 2026-10-31): [approve](https://explorer.arc.io/tx/0xec16b892cdb3e3bf88602ebc2c353f6360904379c57d7799a2d62ab5f3ad6569) → [open 0.05 USDC](https://explorer.arc.io/tx/0x3636704581a6f67c081e0e524a99c3f983b716fa5844016e06a1ee2f4e5fb9a3) → 3 vouchers signed in the app → [claim + close: 0.03 to the service, 0.02 refunded](https://explorer.arc.io/tx/0x738fe8a4dc1ec2a8749282a5761abb16f6f34c20ad6d5141e89553af8ba98753) (see `deployments.mainnet.app.json`). Second app run (recorded for the video): [approve](https://explorer.arc.io/tx/0x78c1ec49fbe3bc8f354b87c6e176fcb665235b21a250e8d43c96b9c4eb309aa8) → [open 0.05](https://explorer.arc.io/tx/0x660093864fba178174dcb0279f4ed1ecdb102f260d4ac0b54172530aab1026ef) → [claim + close](https://explorer.arc.io/tx/0xb7eb77c95e53fba98ad93678dd4641d929a5ea39f48e4bd4a2267f4412feb308) (`deployments.mainnet.app-run2.json`).
 

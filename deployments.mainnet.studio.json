@@ -1,0 +1,14 @@
+{
+  "contract": "Arc Studio ArcMeter (contracts/ArcMeter.sol, unmodified)",
+  "txs": {
+    "deploy": "0x358a03a4ea9d35c7e0022a26024604e98d156efa2a758032e910a9deeca41791",
+    "approve": "0x4af80d00384f61d07332baf52780406cd4fde5d447e94e778ea70130d8f540a0",
+    "open": "0x0b1c7e6dbb6f7f5524bd4f30f58982d97b03e8ab2bb87c7f97315b1b7f702409",
+    "claim": "0xa5228525218ff843d7ce10195d82bb8789e4a59809d0885697192ab69355f9b6",
+    "close": "0x1aef8c27fde4b160034ab474360af7ac441e69b2847964e4febeed7f66e338cd"
+  },
+  "meter": "0x8cCc466E9645eF293bc1d5ee76AE17aAE066a7f9",
+  "channelId": "0x0b2b85baa71804b4cd587a092e006ec899743f470493e948f1ca76a5bd6e8470",
+  "close_paid": 0.01,
+  "refund": 0.01
+}
