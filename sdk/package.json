@@ -1,0 +1,10 @@
+{
+  "name": "arcmeter",
+  "version": "0.1.0",
+  "description": "Pay-per-call USDC payment channels on Arc: sign vouchers client-side, verify them server-side, settle on-chain.",
+  "type": "module",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": { "test": "node --test" },
+  "dependencies": { "viem": "^2.57.11" }
+}
