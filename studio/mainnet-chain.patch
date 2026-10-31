@@ -1,0 +1,42 @@
+--- a/src/lib/chains.ts	2026-10-31 09:02:09.400178040 +0100
++++ b/src/lib/chains.ts	2026-10-31 09:02:09.412178037 +0100
+@@ -1,4 +1,4 @@
+-import { arcTestnet } from 'viem/chains'
++import { arc, arcTestnet } from 'viem/chains'
+ import type { Address, Chain } from 'viem'
+ import { isAddress } from 'viem'
+ 
+@@ -7,7 +7,7 @@
+  * The contract address for chain N comes from VITE_ARCMETER_ADDRESS_N, and can be
+  * overridden at runtime from the Contract settings in the header.
+  */
+-export const APP_CHAINS = [arcTestnet] as const satisfies readonly [Chain, ...Chain[]]
++export const APP_CHAINS = [arc, arcTestnet] as const satisfies readonly [Chain, ...Chain[]]
+ 
+ export type AppChain = (typeof APP_CHAINS)[number]
+ export type AppChainId = AppChain['id']
+--- a/src/config.ts	2026-10-31 09:02:09.404178039 +0100
++++ b/src/config.ts	2026-10-31 09:02:09.412178037 +0100
+@@ -5,18 +5,20 @@
+ 
+ import { http, createConfig } from 'wagmi'
+ import { mainnet } from 'wagmi/chains'
+-import { arcTestnet } from 'viem/chains'
++import { arc, arcTestnet } from 'viem/chains'
+ import { injected } from 'wagmi/connectors'
+ import { registerChain } from './tracing'
+ 
+ // Pre-register chain RPC URLs so trace events show correct chain names immediately
++registerChain(arc.id, arc.rpcUrls.default.http[0])
+ registerChain(arcTestnet.id, arcTestnet.rpcUrls.default.http[0])
+ 
+ // Keep the chain list in sync with APP_CHAINS in src/lib/chains.ts
+ export const config = createConfig({
+-  chains: [arcTestnet, mainnet], // mainnet needed for ENS resolution
++  chains: [arc, arcTestnet, mainnet], // mainnet needed for ENS resolution
+   connectors: [injected()],
+   transports: {
++    [arc.id]: http(),
+     [arcTestnet.id]: http(),
+     [mainnet.id]: http(), // ENS resolution uses mainnet
+   },
