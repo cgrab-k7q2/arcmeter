@@ -1,0 +1,8 @@
+{
+  "channelId": "0x7c70cd3087e573e8ab2ba36b37f29d53a18ab5f4be3661b82de1f0e353346d9e",
+  "txs": {
+    "app_approve": "0x78c1ec49fbe3bc8f354b87c6e176fcb665235b21a250e8d43c96b9c4eb309aa8",
+    "app_open": "0x660093864fba178174dcb0279f4ed1ecdb102f260d4ac0b54172530aab1026ef",
+    "app_claim_close": "0xb7eb77c95e53fba98ad93678dd4641d929a5ea39f48e4bd4a2267f4412feb308"
+  }
+}

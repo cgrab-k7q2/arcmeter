@@ -1,0 +1,20 @@
+{
+  "network": "mainnet",
+  "payer": "0xF21ABEF982BB1ac0308FC60887881BA640323053",
+  "service": "0x652F39321c8ceC1EF21A57A2C750c91F92916C00",
+  "txs": {
+    "deploy": "0x6a171c97e372e4f1a7de645fb8aff283bc9a5530e0ca578720449c736fb4bdcb",
+    "fund_service_gas": "0x95d7494b64750659296a1c48d2f48b3718374531b9991e75dd10af5ba3e9be3e",
+    "approve": "0x85d80284b8a726a61a0dc9b958988c322c44aae1f4b619a66fa7a9a6e51e0a0d",
+    "open": "0x3f46d51f7b14b74ec5366c688fbcd932372853ddfeb8b309ac9d31155e471b37",
+    "claim": "0x40b30379003cccc9ebbbabfe8ec6ff2b4d1c9dc93d4efa77bc60d26201d81c45",
+    "close": "0x9b06e184d1ab8883bb6938cbf03c3cbd437bb1280bb5cd779985ca81881bf543"
+  },
+  "meter": "0x0FEdB04DfE0d24d7FB393B81f03fF85fa0B4cf10",
+  "channelId": "0x77b9a1d8d62ce4c34d90df7c3b4c516c5c31b74f470d20839bbfbd1a8b204821",
+  "offchain_vouchers_verified": 3,
+  "service_received_usdc": 0.03,
+  "refunded_to_payer_usdc": 0.02,
+  "total_gas_cost_usdc": 0.04619,
+  "explorer": "https://explorer.arc.io/address/0x0FEdB04DfE0d24d7FB393B81f03fF85fa0B4cf10"
+}

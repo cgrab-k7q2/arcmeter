@@ -1,0 +1,18 @@
+{
+  "network": "testnet",
+  "payer": "0xF21ABEF982BB1ac0308FC60887881BA640323053",
+  "service": "0x652F39321c8ceC1EF21A57A2C750c91F92916C00",
+  "txs": {
+    "approve": "0xe4f5c8f4d2fcb27c3f922c767f11314eb233205000c7dcb4bb8c4056aec0c01e",
+    "open": "0x6faecaccda3f8d41f6bb991ee031afd8a1248fea38a0dd060d45ad91cc060f95",
+    "claim": "0xaf1e3a787010d0bbef1be791035b1f84b178f3022300663ca49aefd301de121a",
+    "close": "0xe8100d66d7fb82ee9b3439e84424086c90a8ccf70bce538d5a66501745066bdb"
+  },
+  "meter": "0x0FD8BFCa9916550533B9799fdF928c1161BEed36",
+  "channelId": "0xe361fc99537ec0345e32223ce2665b6cd3fb77c00e8f56ea28fac8095fedcd09",
+  "offchain_vouchers_verified": 3,
+  "service_received_usdc": 0.03,
+  "refunded_to_payer_usdc": 0.97,
+  "total_gas_cost_usdc": 0.008708,
+  "explorer": "https://explorer.testnet.arc.io/address/0x0FD8BFCa9916550533B9799fdF928c1161BEed36"
+}

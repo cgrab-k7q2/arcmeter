@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ArcMeter: pay-per-call USDC channels on Arc</title>
+<style>
+  :root { --bg:#0b0d12; --card:#151924; --fg:#e8ecf3; --mut:#8a94a8; --acc:#4f8cff; --ok:#38c172; --bad:#e3342f; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width: 980px; margin: 0 auto; padding: 24px; }
+  h1 { margin: 0 0 4px; font-size: 26px; } p.sub { margin:0 0 20px; color:var(--mut); }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap:16px; }
+  .card { background:var(--card); border-radius:12px; padding:16px; }
+  .card h2 { font-size:16px; margin:0 0 10px; }
+  label { display:block; font-size:12px; color:var(--mut); margin-top:8px; }
+  input, select, textarea { width:100%; padding:8px; border-radius:8px; border:1px solid #2a3142; background:#0f131c; color:var(--fg); font:13px ui-monospace, monospace; }
+  button { margin-top:10px; padding:8px 14px; border:0; border-radius:8px; background:var(--acc); color:#fff; cursor:pointer; font-weight:600; }
+  button.sec { background:#2a3142; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  #log { white-space:pre-wrap; font:12px ui-monospace, monospace; color:var(--mut); max-height:260px; overflow:auto; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); }
+  code { font-size:12px; word-break: break-all; }
+</style>
+</head>
+<body>
+<main>
+  <h1>ArcMeter</h1>
+  <p class="sub">Prepaid USDC payment channels for pay-per-call APIs and AI agents on Arc. Lock USDC once, sign a voucher per call (no gas), and let the service settle whenever it likes.</p>
+
+  <div class="card" style="margin-bottom:16px">
+    <label>Network</label>
+    <select id="net"><option value="testnet">Arc Testnet (5042002)</option><option value="mainnet">Arc Mainnet (5042)</option></select>
+    <label>ArcMeter contract</label>
+    <input id="meter" placeholder="0x…" />
+    <button id="connect">Connect wallet</button> <span id="who"></span>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>1 · Payer: open a channel</h2>
+      <label>Service (payee) address</label><input id="payee" placeholder="0x…" />
+      <label>Deposit (USDC)</label><input id="deposit" value="1" />
+      <label>Expires in (hours)</label><input id="hours" value="24" />
+      <button id="open" disabled>Approve + open</button>
+      <label>Channel id</label><input id="cid" placeholder="0x… (filled after open, or paste)" />
+    </section>
+
+    <section class="card">
+      <h2>2 · Payer: pay for calls</h2>
+      <label>Price per call (USDC)</label><input id="price" value="0.01" />
+      <label>Already spent (USDC)</label><input id="spent" value="0" />
+      <button id="pay" disabled>Sign voucher for 1 call</button>
+      <label>Latest voucher (send as <code>x-arcmeter-voucher</code> header)</label>
+      <textarea id="voucher" rows="4" readonly></textarea>
+    </section>
+
+    <section class="card">
+      <h2>3 · Service: verify + settle</h2>
+      <label>Voucher</label><textarea id="vin" rows="4" placeholder="paste a voucher"></textarea>
+      <button id="verify" class="sec">Verify on-chain view</button>
+      <button id="claim" disabled>Claim</button>
+      <button id="close" class="sec" disabled>Claim + close (refund rest)</button>
+    </section>
+
+    <section class="card">
+      <h2>Channel</h2>
+      <button id="refresh" class="sec">Refresh</button>
+      <div id="chan" style="margin-top:8px"></div>
+      <button id="reclaim" class="sec" disabled>Payer: reclaim after expiry</button>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:16px"><h2>Log</h2><div id="log"></div></section>
+</main>
+
+<script type="module">
+import { createPublicClient, createWalletClient, custom, http, parseUnits, formatUnits, decodeEventLog, getAddress } from 'https://esm.sh/viem@2.57.11';
+import { arc, arcTestnet } from 'https://esm.sh/viem@2.57.11/chains';
+
+const USDC = '0x3600000000000000000000000000000000000000';
+const DEFAULT_METER = { testnet: '0x0FD8BFCa9916550533B9799fdF928c1161BEed36', mainnet: '0x0FEdB04DfE0d24d7FB393B81f03fF85fa0B4cf10' };
+const meterAbi = [
+  { type:'function', name:'open', stateMutability:'nonpayable', inputs:[{name:'payee',type:'address'},{name:'amount',type:'uint128'},{name:'expiresAt',type:'uint64'}], outputs:[{type:'bytes32'}] },
+  { type:'function', name:'claim', stateMutability:'nonpayable', inputs:[{type:'bytes32'},{type:'uint256'},{type:'bytes'}], outputs:[{type:'uint256'}] },
+  { type:'function', name:'close', stateMutability:'nonpayable', inputs:[{type:'bytes32'},{type:'uint256'},{type:'bytes'}], outputs:[] },
+  { type:'function', name:'reclaim', stateMutability:'nonpayable', inputs:[{type:'bytes32'}], outputs:[] },
+  { type:'function', name:'channels', stateMutability:'view', inputs:[{type:'bytes32'}], outputs:[{name:'payer',type:'address'},{name:'payee',type:'address'},{name:'deposit',type:'uint128'},{name:'claimed',type:'uint128'},{name:'expiresAt',type:'uint64'}] },
+  { type:'function', name:'redeemable', stateMutability:'view', inputs:[{type:'bytes32'},{type:'uint256'},{type:'bytes'}], outputs:[{name:'ok',type:'bool'},{name:'amount',type:'uint256'}] },
+  { type:'event', name:'ChannelOpened', inputs:[{name:'id',type:'bytes32',indexed:true},{name:'payer',type:'address',indexed:true},{name:'payee',type:'address',indexed:true},{name:'deposit',type:'uint256'},{name:'expiresAt',type:'uint64'}] },
+];
+const erc20 = [{ type:'function', name:'approve', stateMutability:'nonpayable', inputs:[{type:'address'},{type:'uint256'}], outputs:[{type:'bool'}] }];
+
+const $ = (id) => document.getElementById(id);
+const log = (m, cls='') => { $('log').innerHTML = `<div class="${cls}">${new Date().toLocaleTimeString()}  ${m}</div>` + $('log').innerHTML; };
+const chain = () => $('net').value === 'mainnet' ? arc : arcTestnet;
+const pub = () => createPublicClient({ chain: chain(), transport: http() });
+const meter = () => getAddress($('meter').value.trim());
+const link = (h) => `<a style="color:#4f8cff" target="_blank" href="${chain().blockExplorers.default.url}/tx/${h}">${h.slice(0,10)}…</a>`;
+let wallet, account;
+
+$('meter').value = DEFAULT_METER.testnet;
+$('net').onchange = () => { $('meter').value = DEFAULT_METER[$('net').value] || ''; };
+
+$('connect').onclick = async () => {
+  if (!window.ethereum) return log('No injected wallet found (Rabby, MetaMask, …)', 'bad');
+  const c = chain();
+  try { await ethereum.request({ method:'wallet_switchEthereumChain', params:[{ chainId:'0x'+c.id.toString(16) }] }); }
+  catch { await ethereum.request({ method:'wallet_addEthereumChain', params:[{ chainId:'0x'+c.id.toString(16), chainName:c.name, nativeCurrency:c.nativeCurrency, rpcUrls:[c.rpcUrls.default.http[0]], blockExplorerUrls:[c.blockExplorers.default.url] }] }); }
+  [account] = await ethereum.request({ method:'eth_requestAccounts' });
+  wallet = createWalletClient({ chain: c, transport: custom(window.ethereum), account });
+  $('who').textContent = account.slice(0,6)+'…'+account.slice(-4);
+  for (const b of ['open','pay','claim','close','reclaim']) $(b).disabled = false;
+  log('Connected on ' + c.name, 'ok');
+};
+
+async function write(address, abi, functionName, args) {
+  const hash = await wallet.writeContract({ address, abi, functionName, args });
+  log(`${functionName} sent ${link(hash)}`);
+  const r = await pub().waitForTransactionReceipt({ hash });
+  log(`${functionName} ${r.status}`, r.status === 'success' ? 'ok' : 'bad');
+  return r;
+}
+
+$('open').onclick = async () => {
+  try {
+    const amt = parseUnits($('deposit').value, 6);
+    const exp = BigInt(Math.floor(Date.now()/1000) + Number($('hours').value) * 3600);
+    await write(USDC, erc20, 'approve', [meter(), amt]);
+    const r = await write(meter(), meterAbi, 'open', [getAddress($('payee').value.trim()), amt, exp]);
+    for (const l of r.logs) { try { const e = decodeEventLog({ abi: meterAbi, ...l }); if (e.eventName === 'ChannelOpened') $('cid').value = e.args.id; } catch {} }
+    $('spent').value = '0';
+    log('Channel ' + $('cid').value, 'ok'); refresh();
+  } catch (e) { log(e.shortMessage || e.message, 'bad'); }
+};
+
+$('pay').onclick = async () => {
+  try {
+    const next = parseUnits($('spent').value, 6) + parseUnits($('price').value, 6);
+    const typed = { domain:{ name:'ArcMeter', version:'1', chainId: chain().id, verifyingContract: meter() },
+      types:{ Voucher:[{name:'channelId',type:'bytes32'},{name:'cumulativeAmount',type:'uint256'}] },
+      primaryType:'Voucher', message:{ channelId: $('cid').value.trim(), cumulativeAmount: next } };
+    const s = await wallet.signTypedData({ account, ...typed });
+    const v = btoa(JSON.stringify({ c: typed.message.channelId, a: next.toString(), s })).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    $('voucher').value = v; $('vin').value = v; $('spent').value = formatUnits(next, 6);
+    log(`Signed voucher for cumulative ${formatUnits(next,6)} USDC (no gas)`, 'ok');
+  } catch (e) { log(e.shortMessage || e.message, 'bad'); }
+};
+
+function decode(v) {
+  const o = JSON.parse(atob(v.trim().replace(/-/g,'+').replace(/_/g,'/')));
+  return { id: o.c, amt: BigInt(o.a), sig: o.s };
+}
+$('verify').onclick = async () => {
+  try { const v = decode($('vin').value); const [ok, amt] = await pub().readContract({ address: meter(), abi: meterAbi, functionName:'redeemable', args:[v.id, v.amt, v.sig] });
+    log(ok ? `Valid: redeemable now for ${formatUnits(amt,6)} USDC` : 'Not redeemable (stale, expired, over deposit, or bad signature)', ok ? 'ok' : 'bad');
+  } catch (e) { log(e.shortMessage || e.message, 'bad'); }
+};
+$('claim').onclick = async () => { try { const v = decode($('vin').value); await write(meter(), meterAbi, 'claim', [v.id, v.amt, v.sig]); refresh(); } catch (e) { log(e.shortMessage || e.message, 'bad'); } };
+$('close').onclick = async () => { try { const v = decode($('vin').value); await write(meter(), meterAbi, 'close', [v.id, v.amt, v.sig]); refresh(); } catch (e) { log(e.shortMessage || e.message, 'bad'); } };
+$('reclaim').onclick = async () => { try { await write(meter(), meterAbi, 'reclaim', [$('cid').value.trim()]); refresh(); } catch (e) { log(e.shortMessage || e.message, 'bad'); } };
+
+async function refresh() {
+  const id = $('cid').value.trim(); if (!id) return;
+  const [payer, payee, deposit, claimed, exp] = await pub().readContract({ address: meter(), abi: meterAbi, functionName:'channels', args:[id] });
+  $('chan').innerHTML = payer === '0x0000000000000000000000000000000000000000' ? '<span class="mut">closed / unknown</span>' :
+    `payer <code>${payer}</code><br>payee <code>${payee}</code><br>deposit <b>${formatUnits(deposit,6)}</b> · claimed <b>${formatUnits(claimed,6)}</b> · left <b>${formatUnits(deposit-claimed,6)}</b> USDC<br>expires ${new Date(Number(exp)*1000).toLocaleString()}`;
+}
+$('refresh').onclick = refresh;
+</script>
+</body>
+</html>

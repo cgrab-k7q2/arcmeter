@@ -1,0 +1,9 @@
+node_modules/
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+*.key
+*-wallet.json
+.env
+examples/node_modules
+contracts/lib/
